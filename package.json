@@ -1,0 +1,19 @@
+{
+  "name": "loom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LOOM v5 - autonomous middle engineer",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "talk": "node --env-file=.env --no-warnings bin/talk.js",
+    "resume": "node --env-file=.env --no-warnings bin/resume.js",
+    "mentor": "node --env-file=.env --no-warnings bin/mentor.js",
+    "test": "node --env-file=.env --no-warnings --test --test-concurrency=1 tests/*.test.js"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.8.1"
+  }
+}
