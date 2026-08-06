@@ -137,6 +137,34 @@ test('architect: предпроверка пустышек (§8.9) - фикти�
   }
 });
 
+test('architect: npm install провалился -> ОДНА регенерация плана с другими пакетами, вторая попытка успешна', async () => {
+  const badPlan = { ...samplePlan(), packages: ['this-package-definitely-does-not-exist-xyz-12345'] };
+  const goodPlan = { ...samplePlan(), packages: [] };
+  const env = setupTestEnv({ fakeClaudeMode: 'sequence' });
+  process.env.FAKE_CLAUDE_SEQUENCE = 'ok,ok';
+  process.env.FAKE_CLAUDE_SEQUENCE_RESULTS = [JSON.stringify(badPlan), JSON.stringify(goodPlan)].join('|');
+  try {
+    const { createJournal, createProject, planProject } = await freshImports();
+    const journal = await createJournal();
+    const project = createProject(journal, { title: 'Npm Fail Demo', domain: null });
+    journal.saveProductSpec({ project_id: project.id, spec_md: '## 1. Что это\nx', readiness: ['признак 1', 'признак 2'] });
+    const productSpec = journal.getProductSpec(project.id);
+
+    const { tasks } = await planProject({ project, productSpec, journal });
+    assert.equal(tasks.length, 2, 'должно получиться дерево из ВТОРОГО (успешного) плана');
+    assert.equal(env.callCount(), 2, 'ровно одна регенерация - 2 вызова архитектора всего');
+
+    const events = journal.listEvents(project.id);
+    const hit = events.find((e) => e.type === 'status' && JSON.parse(e.payload ?? '{}').kind === 'npm_install_failed');
+    assert.ok(hit, 'провал npm install должен залогироваться как факт');
+    assert.match(JSON.parse(hit.payload).error, /this-package-definitely-does-not-exist/);
+
+    journal.close();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test('architect: npmInstallGuarded кидает ошибку, если npm prefix не совпадает с каталогом проекта (шрам 36)', async () => {
   const { npmInstallGuarded } = await import('../agents/architect.js');
 

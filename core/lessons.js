@@ -6,7 +6,10 @@
 // Опорный стек LOOM v1 (§16.2 ТЗ): TypeScript/Node, React+HeroUI, Fastify/
 // Express, SQLite. Урок, упоминающий чужой стек - явный признак галлюцинации
 // (шрам 24, применённый к памяти, а не только к UI-библиотеке).
-const FOREIGN_TECH_RE = /\b(python|django|flask|unity3d|unity|c#|\.net|dotnet|java\b|spring boot|kotlin|swift|ruby|rails|php|laravel|go\s?lang|rust\b)\b/i;
+// Внимание: "c#" - trailing \b после '#' (non-word char) не матчит, т.к. между
+// двумя non-word символами нет границы слова. c# вынесен отдельной веткой без
+// завершающего \b.
+const FOREIGN_TECH_RE = /\b(python|django|flask|unity3d|unity|\.net|dotnet|java\b|spring boot|kotlin|swift|ruby|rails|php|laravel|go\s?lang|rust\b)\b|c#/i;
 
 /**
  * passesHallucinationFilter - true, если текст урока не упоминает

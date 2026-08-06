@@ -357,7 +357,38 @@ while (running) {
     continue;
   }
   if (line === '/mentor') {
-    io.write('Канал Наставника появится в Фазе 9.\n');
+    // §12.1 ТЗ, Режим A: инициатива всегда человека. Координатор в v1
+    // синхронный (без параллельных runLoop) - "пауза после текущей задачи"
+    // реализована как "разговор происходит между вызовами runLoop", не как
+    // прерывание процесса в момент вызова модели (задокументировано в DECISIONS.md).
+    const msg = await io.ask('Что не так? (пусто - отмена): ');
+    if (!msg) {
+      continue;
+    }
+    const remember = /запомни/i.test(msg);
+    const runId = crypto.randomUUID();
+    const productSpec = active ? journal.getProductSpec(active.id) : null;
+    const result = await runMentor({ mode: 'A', humanMessage: msg, project: active, productSpec, remember, journal, runId });
+    io.write(`\nнаставник> ${result.reply ?? '(нет ответа)'}\n`);
+
+    if (active && result.correction) {
+      const applied = applyCorrection(journal, active, result.correction);
+      if (applied.applied) {
+        io.write(`Применено: ${applied.target}${applied.taskId ? ` (${applied.taskId})` : ''}.\n`);
+      }
+    }
+
+    if (result.lesson_draft) {
+      const { scope, text, origin } = result.lesson_draft;
+      io.write(`\nПредлагаемый урок:\n  scope: ${scope}\n  text: ${text}\n  origin: ${origin}\n`);
+      const verdict = await io.ask('Подтвердить и записать в постоянную память? (да/нет): ');
+      if (verdict.trim().toLowerCase() === 'да') {
+        const saved = confirmAndSaveLesson(journal, { scope, text, origin });
+        io.write(saved.saved ? 'Урок записан.\n' : `Урок НЕ записан: ${saved.reason}.\n`);
+      } else {
+        io.write('Урок не записан.\n');
+      }
+    }
     continue;
   }
   if (line.startsWith('/project ')) {

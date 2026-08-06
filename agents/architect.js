@@ -104,7 +104,40 @@ export async function planProject({ project, productSpec, journal, runId = crypt
   if (plan.approach) journal.setApproach(project.id, plan.approach);
 
   if (plan.packages?.length) {
-    await npmInstallGuarded(dir, plan.packages);
+    try {
+      await npmInstallGuarded(dir, plan.packages);
+    } catch (err) {
+      // §18 ТЗ (правило 4 уровней) - это Harness-уровень: у Архитектора нет
+      // способа заранее знать, что пакет требует нативной сборки (Visual
+      // Studio/node-gyp), которой нет на машине. Одна регенерация с фактом
+      // ошибки - тот же паттерн, что предпроверка пустышек (§8.9), применённый
+      // к новому классу провала, найденному на практике (экзамен §22 ТЗ).
+      journal.logEvent({
+        run_id: runId,
+        project_id: project.id,
+        type: 'status',
+        agent: 'architect',
+        payload: { kind: 'npm_install_failed', packages: plan.packages, error: err.message.slice(0, 1000) },
+      });
+      fs.rmSync(path.join(dir, 'node_modules'), { recursive: true, force: true });
+      fs.rmSync(path.join(dir, 'package-lock.json'), { force: true });
+
+      plan = await callArchitect({
+        productSpec,
+        project,
+        journal,
+        runId,
+        feedback: `Установка пакетов провалилась на этой машине - НАСТОЯЩАЯ ошибка npm install (не выдумывай другую причину):\n${err.message.slice(0, 800)}\n\nПакеты ${JSON.stringify(plan.packages)} не подходят (типичная причина - нужна нативная сборка C++/Visual Studio, которой на машине нет). Выбери ДРУГОЙ подход/пакеты, не требующие нативной компиляции - например, чистый JS/WASM бэкенд, либо перенеси эту логику в браузер (клиентский код), если это вообще возможно по product_spec.`,
+      });
+      if (!plan || !Array.isArray(plan.tasks) || plan.tasks.length === 0) {
+        throw new Error('Архитектор не вернул валидное дерево задач после регенерации из-за провала npm install');
+      }
+      if (plan.domain) setProjectDomain(journal, project.id, plan.domain);
+      if (plan.approach) journal.setApproach(project.id, plan.approach);
+      if (plan.packages?.length) {
+        await npmInstallGuarded(dir, plan.packages); // вторая попытка - если снова упадёт, честно бросаем (одна регенерация, не бесконечно, шрам 17)
+      }
+    }
   }
 
   let fictitious = await precheckFictitious(plan.tasks, dir);
