@@ -137,6 +137,43 @@ test('architect: предпроверка пустышек (§8.9) - фикти�
   }
 });
 
+test('architect: синтаксически битый критерий (обрыв генерации) -> ОДНА регенерация, вторая попытка проходит precheck', async () => {
+  const brokenPlan = {
+    ...samplePlan(),
+    tasks: [
+      {
+        ...samplePlan().tasks[0],
+        // Имитация реальной находки экзамена §22: async IIFE без закрывающих })( в конце.
+        criteria: { cmd: 'node -e "(async()=>{console.log(1)"' },
+      },
+      samplePlan().tasks[1],
+    ],
+  };
+  const fixedPlan = samplePlan();
+  const env = setupTestEnv({ fakeClaudeMode: 'sequence' });
+  process.env.FAKE_CLAUDE_SEQUENCE = 'ok,ok';
+  process.env.FAKE_CLAUDE_SEQUENCE_RESULTS = [JSON.stringify(brokenPlan), JSON.stringify(fixedPlan)].join('|');
+  try {
+    const { createJournal, createProject, planProject } = await freshImports();
+    const journal = await createJournal();
+    const project = createProject(journal, { title: 'Malformed Criteria Demo', domain: null });
+    journal.saveProductSpec({ project_id: project.id, spec_md: '## 1. Что это\nx', readiness: ['признак 1', 'признак 2'] });
+    const productSpec = journal.getProductSpec(project.id);
+
+    const { tasks } = await planProject({ project, productSpec, journal });
+    assert.equal(tasks.length, 2, 'должно получиться дерево из ВТОРОГО (синтаксически валидного) плана');
+    assert.equal(env.callCount(), 2, 'ровно одна регенерация - 2 вызова архитектора всего');
+
+    const events = journal.listEvents(project.id);
+    const hit = events.find((e) => e.type === 'status' && JSON.parse(e.payload ?? '{}').kind === 'malformed_criteria');
+    assert.ok(hit, 'обрыв генерации критерия должен залогироваться как факт');
+
+    journal.close();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test('architect: npm install провалился -> ОДНА регенерация плана с другими пакетами, вторая попытка успешна', async () => {
   const badPlan = { ...samplePlan(), packages: ['this-package-definitely-does-not-exist-xyz-12345'] };
   const goodPlan = { ...samplePlan(), packages: [] };

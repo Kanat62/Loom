@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runSingleCheck, runRegression, runCriterion, classifyTimeout } from '../core/checkRunner.js';
+import { runSingleCheck, runRegression, runCriterion, classifyTimeout, extractNodeEvalBody } from '../core/checkRunner.js';
 import { createJournal } from '../core/journal.js';
 
 function tmpWorkspace() {

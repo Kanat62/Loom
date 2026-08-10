@@ -6,7 +6,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { PROMPTS_DIR } from '../core/config.js';
 import { chat } from '../core/gateway.js';
-import { runSingleCheck } from '../core/checkRunner.js';
+import { runSingleCheck, extractNodeEvalBody } from '../core/checkRunner.js';
+import vm from 'node:vm';
 import { runProcess } from '../core/spawnUtil.js';
 import { workspaceDir, setProjectDomain } from '../core/projects.js';
 
@@ -28,6 +29,30 @@ async function callArchitect({ productSpec, project, journal, runId, feedback })
     { json: true, projectId: project.id, runId, logEvent: (e) => journal.logEvent(e) }
   );
   return res.data;
+}
+
+/**
+ * findMalformedCriteria - защита от обрезанного вывода модели (найдено на
+ * экзамене §22: длинный Playwright-критерий обрывался ровно на 2 символа
+ * `})()`  до конца - модель "закрывала" внешнюю кавычку команды, но не
+ * успевала дописать закрывающие скобки async-IIFE внутри). Синтаксическая
+ * проверка ДЕШЕВЛЕ и ЧЕСТНЕЕ, чем ждать, пока Исполнитель и Диагност пять
+ * раз подряд получат "пустой stdout" от критерия, который физически не мог
+ * запуститься ни разу.
+ */
+function findMalformedCriteria(tasks) {
+  const malformed = [];
+  for (const t of tasks) {
+    if (!t.criteria?.cmd) continue;
+    const body = extractNodeEvalBody(t.criteria.cmd);
+    if (body === null) continue; // не node -e - не наша забота здесь
+    try {
+      new vm.Script(body);
+    } catch (err) {
+      malformed.push({ title: t.title, error: err.message });
+    }
+  }
+  return malformed;
 }
 
 /**
@@ -97,6 +122,43 @@ export async function planProject({ project, productSpec, journal, runId = crypt
   let plan = await callArchitect({ productSpec, project, journal, runId });
   if (!plan || !Array.isArray(plan.tasks) || plan.tasks.length === 0) {
     throw new Error('Архитектор не вернул валидное дерево задач (пустой или некорректный ответ)');
+  }
+
+  let malformed = findMalformedCriteria(plan.tasks);
+  if (malformed.length > 0) {
+    journal.logEvent({
+      run_id: runId,
+      project_id: project.id,
+      type: 'status',
+      agent: 'architect',
+      payload: { kind: 'malformed_criteria', tasks: malformed.map((m) => m.title) },
+    });
+    plan = await callArchitect({
+      productSpec,
+      project,
+      journal,
+      runId,
+      feedback: `Критерии этих задач синтаксически НЕВАЛИДНЫ как JS (похоже на обрыв генерации на длинных критериях - проверь, что КАЖДЫЙ node -e критерий полностью закрыт: все скобки/фигурные скобки/кавычки): ${malformed
+        .map((m) => `"${m.title}": ${m.error}`)
+        .join('; ')}. Перепиши эти критерии полностью и убедись, что они синтаксически завершены.`,
+    });
+    if (!plan || !Array.isArray(plan.tasks) || plan.tasks.length === 0) {
+      throw new Error('Архитектор не вернул валидное дерево задач после регенерации из-за синтаксически битых критериев');
+    }
+    malformed = findMalformedCriteria(plan.tasks);
+    if (malformed.length > 0) {
+      journal.logEvent({
+        run_id: runId,
+        project_id: project.id,
+        type: 'status',
+        agent: 'architect',
+        payload: { kind: 'malformed_criteria_persist', tasks: malformed.map((m) => m.title) },
+      });
+      // Не бросаем - как и с фиктивными критериями (§8.9), сдаёмся после
+      // одной регенерации и даём дереву идти дальше; сломанный критерий
+      // проявит себя честным провалом на первой же попытке Исполнителя,
+      // а не тихой порчей всего плана.
+    }
   }
 
   scaffoldPackageJson(dir, project.id);
