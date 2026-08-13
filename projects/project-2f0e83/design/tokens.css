@@ -1,0 +1,92 @@
+:root {
+  /* ---------- Цвет (OKLCH). Один акцент: холодный рассветный синий ---------- */
+  --surface: oklch(0.985 0.004 250);            /* фон страницы — белый с синим подтоном */
+  --surface-variant: oklch(0.965 0.008 250);    /* фон карточек, чуть плотнее фона */
+  --surface-elevated: oklch(1 0 0);             /* поверхность верхнего уровня */
+  --content: oklch(0.25 0.03 255);              /* основной текст, >12:1 на surface */
+  --content-secondary: oklch(0.46 0.025 255);   /* вторичный текст, >5:1 на surface */
+  --content-muted: oklch(0.62 0.02 255);        /* только для декора, НЕ для текста */
+  --accent: oklch(0.52 0.14 245);               /* единственный акцент */
+  --accent-content: oklch(0.99 0.005 250);      /* текст/графика поверх accent, >5:1 */
+  --accent-soft: oklch(0.945 0.032 245);        /* подложка иконок */
+  --border: oklch(0.905 0.012 250);             /* границы карточек, 1px */
+  --border-strong: oklch(0.84 0.015 250);
+  --success: oklch(0.55 0.12 155);
+  --warning: oklch(0.62 0.13 75);
+  --danger: oklch(0.55 0.17 25);
+
+  /* ---------- Типографика: одно семейство (системное), шкала 1.25 от 16px ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --text-xs: 0.8rem;      /* 12.8px — только подписи */
+  --text-sm: 0.875rem;    /* 14px — минимум для вторичного текста */
+  --text-base: 1rem;      /* 16px — базовый размер основного текста */
+  --text-lg: 1.25rem;     /* 20px */
+  --text-xl: 1.5625rem;   /* 25px — заголовок карточки */
+  --text-2xl: 1.953rem;   /* 31.25px */
+  --text-3xl: 2.441rem;   /* 39px */
+  --text-4xl: 3.052rem;   /* 48.8px */
+  --text-hero: clamp(2.441rem, 1.6rem + 3.6vw, 4.768rem); /* 39px → 76px */
+
+  --leading-tight: 1.1;   /* hero */
+  --leading-heading: 1.2; /* заголовки */
+  --leading-body: 1.55;   /* основной текст */
+  --tracking-hero: -0.03em;
+  --tracking-heading: -0.015em;
+  --tracking-eyebrow: 0.16em;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* ---------- Ритм и пространство: шкала 4px ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  --measure-hero: 44ch;      /* максимальная ширина подзаголовка */
+  --measure-body: 62ch;      /* максимальная ширина текста */
+  --container-max: 1120px;
+  --container-pad: var(--space-6);   /* поля контейнера на мобильном */
+  --container-pad-lg: var(--space-10);
+
+  /* ---------- Радиусы ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* ---------- Тени: уровень, а не украшение ---------- */
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px oklch(0.25 0.03 255 / 0.05);
+  --shadow-2: 0 4px 16px oklch(0.25 0.03 255 / 0.06);
+  --shadow-3: 0 12px 32px oklch(0.25 0.03 255 / 0.08);
+
+  /* ---------- Движение: только функциональное ---------- */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---------- Декор направления: холодный градиент рассвета ---------- */
+  --dawn-wash: radial-gradient(120% 80% at 50% -10%, oklch(0.93 0.045 245) 0%, oklch(0.985 0.004 250) 62%);
+  --hairline: 1px solid var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}

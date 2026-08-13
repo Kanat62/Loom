@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Наши услуги</title>
+<style>
+  :root {
+    /* Цветовые токены тёмной темы */
+    --color-bg: #0e0f12;
+    --color-surface: #16181d;
+    --color-border: #2a2e37;
+    --color-text: #d5d9e0;
+    --color-heading: #ffffff;
+
+    /* Типографика */
+    --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-size-title: clamp(2rem, 6vw, 3rem);
+    --font-size-card-title: 1.25rem;
+    --font-size-body: 1rem;
+    --line-height-tight: 1.2;
+    --line-height-base: 1.6;
+
+    /* Отступы */
+    --space-xs: 0.5rem;
+    --space-sm: 0.75rem;
+    --space-md: 1.25rem;
+    --space-lg: 2rem;
+    --space-xl: 3rem;
+
+    /* Форма */
+    --radius-md: 14px;
+    --border-width: 1px;
+    --content-max-width: 1040px;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-base);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .page {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .page__title {
+    margin: 0 0 var(--space-lg);
+    color: var(--color-heading);
+    font-size: var(--font-size-title);
+    line-height: var(--line-height-tight);
+    letter-spacing: -0.02em;
+  }
+
+  .services {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--space-md);
+  }
+
+  .service-card {
+    background-color: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    min-width: 0;
+  }
+
+  .service-card__title {
+    margin: 0 0 var(--space-xs);
+    color: var(--color-heading);
+    font-size: var(--font-size-card-title);
+    line-height: var(--line-height-tight);
+  }
+
+  .service-card__text {
+    margin: 0;
+    overflow-wrap: break-word;
+  }
+
+  @media (max-width: 600px) {
+    .page {
+      padding: var(--space-lg) var(--space-sm);
+    }
+
+    .services {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="page__title">Наши услуги</h1>
+
+    <section class="services">
+      <article class="service-card">
+        <h2 class="service-card__title">Брендинг</h2>
+        <p class="service-card__text">Собираем фирменный стиль и айдентику компании в единую узнаваемую систему.</p>
+      </article>
+
+      <article class="service-card">
+        <h2 class="service-card__title">Разработка</h2>
+        <p class="service-card__text">Пишем сайты и сервисы, которые быстро работают и легко развиваются.</p>
+      </article>
+
+      <article class="service-card">
+        <h2 class="service-card__title">Поддержка</h2>
+        <p class="service-card__text">Следим за работой продукта, обновляем его и оперативно устраняем сбои.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

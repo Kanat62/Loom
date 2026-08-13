@@ -1,0 +1,18 @@
+{
+  "name": "text-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Console utility: uppercase a string and count its words",
+  "license": "MIT",
+  "main": "dist/core.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.3"
+  }
+}

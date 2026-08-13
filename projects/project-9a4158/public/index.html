@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang='ru'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>Loom — вертикальное видео</title>
+  <link rel='stylesheet' href='/design/tokens.css' />
+  <link rel='stylesheet' href='/styles.css' />
+</head>
+<body>
+  <div class='app'>
+    <header class='app__header'>
+      <h1 class='app__title'>Loom</h1>
+      <label class='file-input'>
+        <input type='file' id='file' accept='video/mp4,video/quicktime,.mp4,.mov' />
+        <span class='file-input__label'>Загрузить видео</span>
+      </label>
+    </header>
+
+    <p id='error' class='error' role='alert' hidden></p>
+
+    <main class='workspace' id='workspace' hidden>
+      <div class='stage' id='stage'>
+        <video id='player' class='stage__video' playsinline controls></video>
+        <div id='frame' class='stage__frame'></div>
+      </div>
+
+      <aside class='preview-pane'>
+        <div class='preview-pane__label'>Превью</div>
+        <canvas id='preview' class='preview-pane__canvas' width='360' height='640'></canvas>
+        <div class='controls'>
+          <button id='auto' type='button' class='btn btn--ghost' aria-pressed='false' data-action='auto'>Автоматически</button>
+          <button id='download' type='button' class='btn btn--primary' data-action='download'>Скачать</button>
+        </div>
+        <div id='progress' class='progress' hidden aria-live='polite'>
+          <div class='progress__track'>
+            <div id='progress-bar' class='progress__bar' style='width:0%'></div>
+          </div>
+          <span id='progress-label' class='progress__label'>0%</span>
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script type='module' src='/app.js'></script>
+</body>
+</html>

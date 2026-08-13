@@ -1,0 +1,230 @@
+/*
+ * Оформление интерфейса Loom.
+ * Все цвета, отступы, радиусы, тени и типографика берутся ИСКЛЮЧИТЕЛЬНО
+ * из design/tokens.css через var(--...). Литералов hex/rgb в этом файле
+ * быть не должно.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app__title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.file-input {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.file-input input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.file-input__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, var(--color-bg));
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s ease;
+}
+
+.file-input:hover .file-input__label {
+  background: var(--color-primary-hover);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.stage {
+  position: relative;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.stage__video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--color-bg);
+}
+
+.stage__frame {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 9999px var(--color-frame-overlay, var(--color-bg));
+  pointer-events: none;
+}
+
+.preview-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.preview-pane__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.preview-pane__canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.controls {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.btn {
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn:hover {
+  border-color: var(--color-primary);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.btn--ghost[aria-pressed='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground, var(--color-bg));
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground, var(--color-bg));
+}
+
+.btn--primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.progress__track {
+  flex: 1;
+  height: var(--space-xs);
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress__bar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width 0.2s ease;
+}
+
+.progress__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 3ch;
+  text-align: right;
+}
+
+@media (max-width: 860px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}

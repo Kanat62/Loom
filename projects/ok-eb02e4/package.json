@@ -1,0 +1,1 @@
+{"name":"cli","version":"1.0.0","bin":{"cli":"./cli.js"},"private":true}

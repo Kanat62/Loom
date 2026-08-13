@@ -1,0 +1,9 @@
+{
+  "name": "project-2f0e83",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}

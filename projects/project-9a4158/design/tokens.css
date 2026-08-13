@@ -1,0 +1,152 @@
+:root {
+  color-scheme: dark;
+
+  /* ── Поверхности ───────────────────────────────────────────── */
+  --canvas: oklch(0.08 0 0);              /* киноподложка под видео, чистый чёрный-нейтральный */
+  --surface: oklch(0.17 0.011 265);       /* основной фон приложения */
+  --surface-variant: oklch(0.22 0.013 265); /* панели, карточки, тулбары */
+  --surface-raised: oklch(0.26 0.014 265);  /* поповеры, модалки, hover-панели */
+  --backdrop: oklch(0.08 0.008 265 / 0.72); /* затемнение под модалкой */
+
+  /* ── Контент ───────────────────────────────────────────────── */
+  --content: oklch(0.96 0.004 265);          /* осн. текст, 14.6:1 на --surface */
+  --content-secondary: oklch(0.755 0.009 265); /* вторичный текст, 7.4:1 на --surface */
+  --content-muted: oklch(0.60 0.010 265);      /* только для нетекстовых меток и иконок-подсказок, 4.0:1 — запрещён для основного текста */
+
+  /* ── Акцент (единственный) ─────────────────────────────────── */
+  --accent: oklch(0.78 0.148 68);           /* тёплый янтарь: главное действие, активная рамка */
+  --accent-hover: oklch(0.83 0.148 68);
+  --accent-pressed: oklch(0.72 0.140 68);
+  --accent-content: oklch(0.18 0.030 68);   /* текст на акценте, 9.8:1 */
+  --accent-soft: oklch(0.78 0.148 68 / 0.16); /* фон активного состояния */
+  --accent-ring: oklch(0.78 0.148 68 / 0.55); /* фокус-кольцо */
+
+  /* ── Границы ───────────────────────────────────────────────── */
+  --border: oklch(0.30 0.012 265);
+  --border-strong: oklch(0.42 0.013 265);
+  --border-subtle: oklch(0.24 0.012 265);
+
+  /* ── Статусы ───────────────────────────────────────────────── */
+  --success: oklch(0.76 0.140 152);
+  --success-content: oklch(0.18 0.030 152);
+  --warning: oklch(0.80 0.140 85);
+  --warning-content: oklch(0.19 0.030 85);
+  --danger: oklch(0.66 0.190 25);
+  --danger-content: oklch(0.98 0.008 25);
+  --info: oklch(0.74 0.100 240);
+  --info-content: oklch(0.18 0.030 240);
+
+  /* ── Домен: дорожка положений рамки ────────────────────────── */
+  --track-auto: oklch(0.60 0.070 240);      /* участки автоведения */
+  --track-manual: oklch(0.78 0.148 68);     /* участки, записанные мышью */
+  --track-empty: oklch(0.26 0.012 265);
+  --playhead: oklch(0.98 0 0);
+  --frame-guide: oklch(0.98 0 0 / 0.9);     /* контур вертикальной рамки */
+  --frame-shade: oklch(0.08 0 0 / 0.55);    /* затемнение вне рамки */
+
+  /* ── Типографика: 2 семейства, шкала 1.25 от 16px ─────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-xs: 0.8rem;     /* 12.8px — только таймкод/метки, не текст абзаца */
+  --text-sm: 0.875rem;   /* 14px — вторичный текст */
+  --text-base: 1rem;     /* 16px — основной текст */
+  --text-lg: 1.25rem;    /* 20px */
+  --text-xl: 1.5625rem;  /* 25px */
+  --text-2xl: 1.953rem;  /* 31.25px */
+
+  --leading-body: 1.5;
+  --leading-tight: 1.15;
+  --tracking-heading: -0.015em;
+  --tracking-mono: 0.02em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* ── Ритм: 4-based ─────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ── Радиусы ───────────────────────────────────────────────── */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Тени = уровень над поверхностью, не украшение ─────────── */
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.45);
+  --shadow-2: 0 4px 12px oklch(0 0 0 / 0.50);
+  --shadow-3: 0 12px 32px oklch(0 0 0 / 0.58);
+  --shadow-4: 0 24px 64px oklch(0 0 0 / 0.66);
+
+  /* ── Движение ──────────────────────────────────────────────── */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 120ms;   /* hover, нажатие, фокус */
+  --duration-base: 180ms;   /* смена состояния контрола */
+  --duration-slow: 250ms;   /* появление панели, модалки */
+
+  /* ── Ширины контента ───────────────────────────────────────── */
+  --measure-text: 68ch;     /* максимальная ширина абзаца */
+  --app-max: 1680px;        /* максимальная ширина рабочей области */
+  --panel-preview: 340px;   /* колонка превью-телефона */
+}
+
+/* Мост к токенам HeroUI v3 — компоненты берут цвет отсюда */
+:root, .dark {
+  --background: var(--surface);
+  --foreground: var(--content);
+  --content1: var(--surface-variant);
+  --content2: var(--surface-raised);
+  --default: var(--surface-variant);
+  --default-foreground: var(--content);
+  --accent-foreground: var(--accent-content);
+  --success-foreground: var(--success-content);
+  --warning-foreground: var(--warning-content);
+  --danger-foreground: var(--danger-content);
+  --focus: var(--accent);
+  --divider: var(--border);
+}
+
+html, body {
+  background: var(--surface);
+  color: var(--content);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-heading);
+  font-weight: var(--weight-semibold);
+}
+
+/* Таймкоды, длительности, размеры файла — только моноширинный */
+.tabular, time, .timecode {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
