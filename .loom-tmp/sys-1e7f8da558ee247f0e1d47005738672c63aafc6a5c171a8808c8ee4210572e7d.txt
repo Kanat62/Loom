@@ -1,0 +1,1 @@
+You are a terse test oracle. Reply with exactly the single word: OK

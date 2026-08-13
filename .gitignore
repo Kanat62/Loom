@@ -1,12 +1,6 @@
 node_modules/
 .env
 
-journal.db
-journal.db-*
 
-projects/
 
-.loom-tmp/
 
-*.log
-.history/

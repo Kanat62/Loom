@@ -1,0 +1,1 @@
+You reply with strict JSON only, no prose, no markdown fences. Schema: {"sum": number}
