@@ -30,7 +30,7 @@ export function extractNodeEvalBody(cmd) {
   if (!m) return null;
   const [, quote, rawBody] = m;
   if (quote === '"') {
-    // Экранирование по конвенции prompts/architect.md: \" -> ", \\ -> \.
+    // Экранирование по конвенции prompts/engineer.md: \" -> ", \\ -> \.
     // ВАЖНО (реальный баг, найден на экзамене §22 - сложный Playwright-критерий
     // с вложенными кавычками/регэкспами молча ломался): два ПОСЛЕДОВАТЕЛЬНЫХ
     // .replace() небезопасны - результат первой замены может случайно создать
@@ -90,7 +90,7 @@ function evaluateExpect(expect, res) {
 
 /**
  * runSingleCheck - исполняет один {cmd, expect?, timeout_ms?} критерий.
- * §8.9 ТЗ (капкан на пустышки) реализуется вызывающей стороной (architect.js /
+ * §8.9 ТЗ (капкан на пустышки) реализуется вызывающей стороной (engineer.js /
  * coordinator.js), не здесь - checkRunner просто исполняет, что дали.
  */
 export async function runSingleCheck({ cmd, expect, timeout_ms }, { cwd }) {

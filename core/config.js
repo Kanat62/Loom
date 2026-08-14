@@ -32,16 +32,21 @@ export function getTmpDir() {
 export const PROMPTS_DIR = path.join(ROOT, 'prompts');
 
 // §5.2 ТЗ - роли и цепочки моделей (тир -> следующий тир при технической неудаче).
+// v5.2: Аналитик+Архитектор+Консультант+свод Дизайнера слиты в engineer -
+// одна голова держит понимание, план и сдачу (§1.1 ТЗ v5.2, шрам 44/45).
 export const ROLES = {
-  analyst: ['claude-cli:opus', 'claude-cli:sonnet'],
-  designer: ['claude-cli:opus', 'claude-cli:sonnet'],
-  architect: ['claude-cli:opus', 'claude-cli:sonnet'],
+  engineer: ['claude-cli:opus', 'claude-cli:sonnet'],
   coder: ['claude-cli:sonnet', 'claude-cli:opus'], // эскалация при провале
   pilot: ['claude-cli:sonnet', 'claude-cli:opus'],
-  consultant: ['claude-cli:sonnet'],
   diagnostician: ['claude-cli:opus'],
-  mentor: ['claude-cli:opus'],
 };
+
+// §3.2 ТЗ v5.2 - сверка целого (checkpoint): каждая N-я закрытая задача.
+export const CHECKPOINT_EVERY_N_DONE = 3;
+
+// §3.3 ТЗ v5.2 - разведка (spike): лимит попыток меньше обычного (§7) - сама
+// неуложившаяся разведка уже результат, не повод упорствовать до общего MAX_ATTEMPTS.
+export const SPIKE_MAX_ATTEMPTS = 3;
 
 // §7 ТЗ - лестница попыток.
 export const MAX_ATTEMPTS = 4;

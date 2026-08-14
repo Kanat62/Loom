@@ -14,7 +14,7 @@ test('gateway: успешный вызов возвращает текст и п
   try {
     const events = [];
     const res = await chat(
-      'consultant',
+      'engineer',
       [
         { role: 'system', content: 'system prompt' },
         { role: 'user', content: 'ping' },
@@ -134,7 +134,7 @@ test('gateway: все модели недоступны -> два круга, з
     await assert.rejects(
       () =>
         chat(
-          'consultant', // цепочка длины 1 -> 2 круга = 2 попытки
+          'diagnostician', // цепочка длины 1 -> 2 круга = 2 попытки
           [
             { role: 'system', content: 'sys' },
             { role: 'user', content: 'u' },

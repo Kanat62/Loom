@@ -100,6 +100,32 @@ test('pilot: скрипт печатает невалидный JSON -> чест
   }
 });
 
+test('pilot: steps_done прокидывается из скрипта в результат', async () => {
+  const payload = { findings: [], visual: true, steps_done: ['открыл продукт', 'прошёл сценарий'] };
+  const env = setupTestEnv({ fakeClaudeMode: 'ok', fakeClaudeResult: JSON.stringify({ script: scriptPrinting(payload) }) });
+  try {
+    const { createJournal, createProject, runPilot } = await freshImports();
+    const journal = await createJournal();
+    const project = createProject(journal, { title: 'Pilot Steps', domain: 'cli' });
+    journal.saveProductSpec({ project_id: project.id, spec_md: '## 2. Как работает\nсценарий', readiness: [] });
+    const productSpec = journal.getProductSpec(project.id);
+
+    const result = await runPilot({ project, productSpec, journal, runId: 'r1' });
+    assert.deepEqual(result.stepsDone, ['открыл продукт', 'прошёл сценарий']);
+
+    journal.close();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test('requiresVisualBlock: §5 ТЗ v5.2 (шрам 42) - visual:false блокирует ТОЛЬКО для domain=ui', async () => {
+  const { requiresVisualBlock } = await import('../agents/pilot.js');
+  assert.equal(requiresVisualBlock({ domain: 'ui' }, { visual: false }), true);
+  assert.equal(requiresVisualBlock({ domain: 'ui' }, { visual: true }), false);
+  assert.equal(requiresVisualBlock({ domain: 'cli' }, { visual: false }), false, 'cli-продукт не проверяется визуально в принципе');
+});
+
 test('pilot: applyPilotFindings создаёт задачи type=pilot_fix с критериями находок', async () => {
   const env = setupTestEnv({ fakeClaudeMode: 'ok' });
   try {

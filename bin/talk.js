@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 // bin/talk.js - главная сессия (§0.1 гайда). Человек пишет в ОДНУ сессию,
-// Аналитик сам различает build/question/tweak/mentor (§1.1 ТЗ) - отдельной
-// команды "задать вопрос" не существует.
+// Инженер сам различает build/question/tweak (§3.1 ТЗ v5.2 - слитая роль,
+// Наставник отложен вместе с памятью, отдельного канала нет).
 import crypto from 'node:crypto';
 import { createJournal } from '../core/journal.js';
 import { createProject, listProjects, getProject, setProjectStatus, setProjectDomain } from '../core/projects.js';
-import { runLoop } from '../core/coordinator.js';
-import { runAnalystWithQuestionFilter } from '../agents/analyst.js';
-import { planProject } from '../agents/architect.js';
-import { runDesigner, saveDesignSystem, loadDesignSystem } from '../agents/designer.js';
-import { runPilot, applyPilotFindings, hasBlockers } from '../agents/pilot.js';
-import { runConsultant } from '../agents/consultant.js';
-import { runMentor, applyCorrection } from '../agents/mentor.js';
-import { confirmAndSaveLesson } from '../core/lessons.js';
+import { runLoopWithCheckpoints, runLoop, canDeliver } from '../core/coordinator.js';
+import {
+  runUnderstandWithQuestionFilter,
+  runDesignDirection,
+  saveDesignSystem,
+  loadDesignSystem,
+  planProject,
+  runReport,
+} from '../agents/engineer.js';
+import { runPilot, applyPilotFindings, hasBlockers, requiresVisualBlock } from '../agents/pilot.js';
 import { findUntouchedViolations } from '../core/productSpec.js';
 import { createIO } from '../core/io.js';
 
@@ -34,7 +36,7 @@ function printStatus() {
     const marker = active && active.id === p.id ? '*' : ' ';
     io.write(`${marker} ${p.id}  [${p.status}] ${p.title}\n`);
     for (const t of journal.listTasks(p.id)) {
-      io.write(`    - ${t.id} [${t.status}] (attempts=${t.attempts}) ${t.title}\n`);
+      io.write(`    - ${t.id} [${t.status}] (${t.type}${t.core_check ? ', core' : ''}, attempts=${t.attempts}) ${t.title}\n`);
     }
   }
 }
@@ -43,12 +45,11 @@ function help() {
   io.write(
     [
       'Пишите желаемый результат, вопрос о проекте или мелкую правку обычным текстом -',
-      'Аналитик сам разберёт, что это (build/question/tweak/mentor).',
+      'Инженер сам разберёт, что это (build/question/tweak).',
       '',
       'Команды:',
       '  /status, /projects   - список проектов и задач',
       '  /project <id>        - выбрать активный проект',
-      '  /mentor              - канал Наставника (Фаза 9)',
       '  /help                - эта справка',
       '  /exit                - выход',
       '',
@@ -90,46 +91,80 @@ function resolveDirectionChoice(line, options) {
 }
 
 /**
- * proceedToArchitect - Архитектор + прогон дерева задач. Вызывается либо
- * сразу после "утверждаю" (domain != 'ui'), либо после выбора направления
- * Дизайнером (domain === 'ui').
+ * proceedToPlan - режим "План" Инженера + прогон дерева задач с checkpoint'ами
+ * (§3.2 ТЗ v5.2). Вызывается либо сразу после "утверждаю" (domain != 'ui'),
+ * либо после выбора направления дизайна (domain === 'ui').
  */
-async function proceedToArchitect(project) {
-  io.write('Архитектор проектирует дерево задач...\n');
+async function proceedToPlan(project) {
+  io.write('Инженер проектирует дерево задач...\n');
   const spec = journal.getProductSpec(project.id);
   const runId = crypto.randomUUID();
-  const { plan, tasks, regressionTask, uncoveredReadiness } = await planProject({ project, productSpec: spec, journal, runId });
+  const { plan, tasks, spikeTask, regressionTask, uncoveredReadiness, uncoveredCoreChecks } = await planProject({
+    project,
+    productSpec: spec,
+    journal,
+    runId,
+  });
 
   io.write(`\n# Approach\nВыбрано: ${plan.approach?.chosen ?? '(не указано)'}\nПочему: ${plan.approach?.why ?? '(не указано)'}\n`);
+  if (spikeTask) {
+    io.write(`\n[loom] Рискованное допущение обнаружено - разведзадача ${spikeTask.id} блокирует всё дерево до своего решения.\n`);
+  }
   io.write(`\nЗадач: ${tasks.length}${regressionTask ? ' + регрессия' : ''}\n`);
   if (uncoveredReadiness.length > 0) {
     io.write(`\n[loom] ВНИМАНИЕ: признаки готовности без покрытия задачей:\n${uncoveredReadiness.map((r) => `  - ${r}`).join('\n')}\n`);
   }
+  if (uncoveredCoreChecks.length > 0) {
+    io.write(
+      `\n[loom] ВНИМАНИЕ (правило 13): core-признаки без критерия целого (core_check):\n${uncoveredCoreChecks.map((r) => `  - ${r}`).join('\n')}\n`
+    );
+  }
 
-  io.write('\nВыполняю дерево задач...\n');
+  io.write('\nВыполняю дерево задач (со сверками целого между задачами)...\n');
   const designSystem = loadDesignSystem(project.id);
-  const { results } = await runLoop({ journal, projectId: project.id, role: 'coder', productSpec: spec, designSystem });
+  const { results, stopped, stopReason } = await runLoopWithCheckpoints({ journal, project, productSpec: spec, designSystem, runId });
   for (const r of results) {
+    if (r.checkpoint) {
+      io.write(`  [checkpoint] on_track=${r.on_track} ${r.drift ? `drift: ${r.drift}` : ''} (actions: ${r.applied.length})\n`);
+      continue;
+    }
     io.write(`  ${r.taskId} [${r.title}] -> ${r.verdict}${r.report ? `\n    ${r.report.split('\n')[0]}` : ''}\n`);
   }
 
-  let blockers = false;
+  if (stopped) {
+    setProjectStatus(journal, project.id, 'active');
+    journal.logEvent({
+      run_id: runId,
+      project_id: project.id,
+      type: 'status',
+      agent: 'engineer',
+      payload: { kind: 'checkpoint_stopped_pipeline', stopReason },
+    });
+    io.write(`\n[loom] Конвейер ОСТАНОВЛЕН сверкой целого: ${stopReason}\nПродукт НЕ сдан - нужно решение человека или продолжение доработки.\n`);
+    return;
+  }
+
+  let pilotResult = null;
   const allTasks = journal.listTasks(project.id);
-  const boardGreen = allTasks.length > 0 && allTasks.every((t) => t.status === 'done');
+  const boardGreen = allTasks.length > 0 && allTasks.every((t) => t.status === 'done' || t.status === 'retired');
 
   if (!boardGreen) {
-    io.write('\n[loom] Доска не полностью зелёная - Пилот не запускается (§9 ТЗ: только после того, как всё пройдено).\n');
-    blockers = true;
+    io.write('\n[loom] Доска не полностью зелёная - Пилот не запускается (только после того, как всё пройдено).\n');
   } else {
     io.write('\nДоска зелёная. Пилот проходит сценарий продукта...\n');
     const pilotRunId = crypto.randomUUID();
-    const pilotResult = await runPilot({ project, productSpec: spec, journal, runId: pilotRunId });
+    pilotResult = await runPilot({ project, productSpec: spec, journal, runId: pilotRunId });
     journal.logEvent({
       run_id: pilotRunId,
       project_id: project.id,
       type: 'pilot',
       agent: 'pilot',
-      payload: { findingsCount: pilotResult.findings.length, visual: pilotResult.visual, scriptFailed: pilotResult.scriptFailed ?? false },
+      payload: {
+        findingsCount: pilotResult.findings.length,
+        visual: pilotResult.visual,
+        stepsDone: pilotResult.stepsDone ?? [],
+        scriptFailed: pilotResult.scriptFailed ?? false,
+      },
     });
 
     if (pilotResult.scriptFailed) {
@@ -137,6 +172,8 @@ async function proceedToArchitect(project) {
     } else {
       if (!pilotResult.visual) {
         io.write('[loom] Пилот: визуальная часть НЕ проверена (браузер недоступен) - честно помечено, не имитация.\n');
+      } else if (pilotResult.stepsDone?.length) {
+        io.write(`Пилот прошёл шаги: ${pilotResult.stepsDone.join(' -> ')}\n`);
       }
       if (pilotResult.findings.length === 0) {
         io.write('Пилот не нашёл замечаний.\n');
@@ -146,8 +183,7 @@ async function proceedToArchitect(project) {
         for (const t of created) {
           io.write(`  [${t.severity}] ${t.id} ${t.title}\n`);
         }
-        blockers = hasBlockers(pilotResult.findings);
-        if (blockers) io.write('\n[loom] ЕСТЬ BLOCKER-находки - сдача заблокирована до их исправления.\n');
+        if (hasBlockers(pilotResult.findings)) io.write('\n[loom] ЕСТЬ BLOCKER-находки - сдача заблокирована до их исправления.\n');
 
         io.write('\nИсправляю находки Пилота...\n');
         const { results: fixResults } = await runLoop({ journal, projectId: project.id, role: 'coder', productSpec: spec, designSystem });
@@ -156,19 +192,29 @@ async function proceedToArchitect(project) {
         }
       }
     }
+
+    if (requiresVisualBlock(project, pilotResult)) {
+      io.write(
+        '\n[loom] visual:false для UI-продукта - второй контур недоступен: продукт не проверен глазами.\n' +
+          'Установите: `npx playwright install chromium` и запустите доработку снова.\n'
+      );
+    }
   }
 
-  const finalTasks = journal.listTasks(project.id);
-  const stillBlocked = finalTasks.some((t) => t.status === 'blocked_needs_human');
-  blockers = blockers || stillBlocked;
-
-  io.write('\nКонсультант готовит отчёт о сдаче...\n');
-  const consultantRunId = crypto.randomUUID();
-  const report = await runConsultant({ project, productSpec: spec, journal, runId: consultantRunId });
+  io.write('\nИнженер готовит отчёт о сдаче...\n');
+  const reportRunId = crypto.randomUUID();
+  const report = await runReport({ project, productSpec: spec, journal, runId: reportRunId });
   io.write(`\n${'='.repeat(60)}\n${report}\n${'='.repeat(60)}\n`);
 
-  setProjectStatus(journal, project.id, blockers ? 'active' : 'delivered');
-  io.write(blockers ? '\n[loom] Проект НЕ сдан - есть незакрытые вопросы (см. отчёт выше).\n' : '\n[loom] Проект сдан. Статус: delivered.\n');
+  const finalTasks = journal.listTasks(project.id);
+  const verdict = canDeliver({ project: journal.getProject(project.id), productSpec: spec, tasks: finalTasks, pilotResult });
+
+  setProjectStatus(journal, project.id, verdict.ok ? 'delivered' : 'active');
+  if (verdict.ok) {
+    io.write('\n[loom] Проект сдан. Статус: delivered.\n');
+  } else {
+    io.write(`\n[loom] Проект НЕ сдан:\n${verdict.reasons.map((r) => `  - ${r}`).join('\n')}\n`);
+  }
 }
 
 async function handleVerdict(line) {
@@ -178,12 +224,12 @@ async function handleVerdict(line) {
     journal.approveProductSpec(active.id);
     setProjectStatus(journal, active.id, 'active');
 
-    const projectRow = journal.getProject(active.id); // domain мог быть проставлен Аналитиком
+    const projectRow = journal.getProject(active.id); // domain мог быть проставлен Инженером
     if (projectRow.domain === 'ui') {
-      io.write('ТЗ утверждено. Дизайнер подбирает направление...\n');
+      io.write('ТЗ утверждено. Инженер подбирает направление дизайна...\n');
       const runId = crypto.randomUUID();
       const spec = journal.getProductSpec(active.id);
-      const designResult = await runDesigner({ project: active, productSpec: spec, journal, runId });
+      const designResult = await runDesignDirection({ project: active, productSpec: spec, journal, runId });
 
       if (designResult.status === 'choose_direction' && designResult.options?.length) {
         pendingDesignOptions = designResult.options;
@@ -200,7 +246,7 @@ async function handleVerdict(line) {
       io.write(`Дизайн-система готова: ${designResult.direction ?? '(без названия)'} (${designResult.reference_note ?? ''})\n`);
     }
 
-    await proceedToArchitect(active);
+    await proceedToPlan(active);
     resetInterview();
     return;
   }
@@ -216,17 +262,16 @@ async function handleVerdict(line) {
   if (line.startsWith('правка:')) {
     const editText = line.slice('правка:'.length).trim();
     const runId = crypto.randomUUID();
-    let result = await runAnalystWithQuestionFilter({ transcript, project: active, productSpec, editInstruction: editText, journal, runId });
+    let result = await runUnderstandWithQuestionFilter({ transcript, project: active, productSpec, editInstruction: editText, journal, runId });
 
     if (result.route !== 'build' || result.status !== 'ready' || !result.product_spec_md) {
-      io.write('Аналитик не смог внести правку корректно. Переформулируйте.\n');
+      io.write('Инженер не смог внести правку корректно. Переформулируйте.\n');
       return;
     }
 
     let violations = findUntouchedViolations(productSpec.spec_md, result.product_spec_md, result.changed_sections);
     if (violations.length > 0) {
-      // §1.1 ТЗ: расхождение -> ОДНА повторная попытка -> честный отказ.
-      const retry = await runAnalystWithQuestionFilter({
+      const retry = await runUnderstandWithQuestionFilter({
         transcript,
         project: active,
         productSpec,
@@ -248,6 +293,7 @@ async function handleVerdict(line) {
       project_id: active.id,
       spec_md: result.product_spec_md,
       readiness: result.readiness,
+      core_intent: result.core_intent ?? productSpec.core_intent,
       engineering_defaults: result.engineering_defaults,
     });
     io.write(`\nОбновлённое ТЗ:\n\n${result.product_spec_md}\n\nОтветьте: утверждаю / правка: <текст> / отмена\n`);
@@ -261,16 +307,10 @@ async function handleFreeText(line) {
   transcript.push({ from: 'human', text: line });
   const runId = crypto.randomUUID();
   const productSpec = active ? journal.getProductSpec(active.id) : null;
-  const result = await runAnalystWithQuestionFilter({ transcript, project: active, productSpec, journal, runId });
+  const result = await runUnderstandWithQuestionFilter({ transcript, project: active, productSpec, journal, runId });
 
   if (result.route === 'question') {
-    io.write(`${result.answer ?? '(Аналитик не дал ответа - переформулируйте вопрос)'}\n`);
-    resetInterview();
-    return;
-  }
-
-  if (result.route === 'mentor') {
-    io.write('Это про сам LOOM - канал Наставника появится в Фазе 9. Пока используйте `npm run mentor` позже.\n');
+    io.write(`${result.answer ?? '(Инженер не дал ответа - переформулируйте вопрос)'}\n`);
     resetInterview();
     return;
   }
@@ -283,7 +323,7 @@ async function handleFreeText(line) {
     }
     const t = result.task;
     if (!t?.title || !t?.spec || !t?.criteria) {
-      io.write('Аналитик не дал полную задачу для правки - переформулируйте.\n');
+      io.write('Инженер не дал полную задачу для правки - переформулируйте.\n');
       resetInterview();
       return;
     }
@@ -310,11 +350,11 @@ async function handleFreeText(line) {
   // route === 'build'
   if (result.status === 'clarifying') {
     if (!result.questions?.length) {
-      io.write('Аналитик не задал вопросов и не выдал готовое ТЗ - переформулируйте запрос.\n');
+      io.write('Инженер не задал вопросов и не выдал готовое ТЗ - переформулируйте запрос.\n');
       resetInterview();
       return;
     }
-    transcript.push({ from: 'analyst', text: result.questions.join(' ') });
+    transcript.push({ from: 'engineer', text: result.questions.join(' ') });
     io.write(`${result.questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n`);
     mode = 'interviewing';
     return;
@@ -331,6 +371,7 @@ async function handleFreeText(line) {
     project_id: active.id,
     spec_md: result.product_spec_md,
     readiness: result.readiness,
+    core_intent: result.core_intent ?? null,
     engineering_defaults: result.engineering_defaults,
   });
   setProjectStatus(journal, active.id, 'awaiting_approval');
@@ -354,41 +395,6 @@ while (running) {
   }
   if (line === '/help') {
     help();
-    continue;
-  }
-  if (line === '/mentor') {
-    // §12.1 ТЗ, Режим A: инициатива всегда человека. Координатор в v1
-    // синхронный (без параллельных runLoop) - "пауза после текущей задачи"
-    // реализована как "разговор происходит между вызовами runLoop", не как
-    // прерывание процесса в момент вызова модели (задокументировано в DECISIONS.md).
-    const msg = await io.ask('Что не так? (пусто - отмена): ');
-    if (!msg) {
-      continue;
-    }
-    const remember = /запомни/i.test(msg);
-    const runId = crypto.randomUUID();
-    const productSpec = active ? journal.getProductSpec(active.id) : null;
-    const result = await runMentor({ mode: 'A', humanMessage: msg, project: active, productSpec, remember, journal, runId });
-    io.write(`\nнаставник> ${result.reply ?? '(нет ответа)'}\n`);
-
-    if (active && result.correction) {
-      const applied = applyCorrection(journal, active, result.correction);
-      if (applied.applied) {
-        io.write(`Применено: ${applied.target}${applied.taskId ? ` (${applied.taskId})` : ''}.\n`);
-      }
-    }
-
-    if (result.lesson_draft) {
-      const { scope, text, origin } = result.lesson_draft;
-      io.write(`\nПредлагаемый урок:\n  scope: ${scope}\n  text: ${text}\n  origin: ${origin}\n`);
-      const verdict = await io.ask('Подтвердить и записать в постоянную память? (да/нет): ');
-      if (verdict.trim().toLowerCase() === 'да') {
-        const saved = confirmAndSaveLesson(journal, { scope, text, origin });
-        io.write(saved.saved ? 'Урок записан.\n' : `Урок НЕ записан: ${saved.reason}.\n`);
-      } else {
-        io.write('Урок не записан.\n');
-      }
-    }
     continue;
   }
   if (line.startsWith('/project ')) {
@@ -417,10 +423,10 @@ while (running) {
     }
     const runId = crypto.randomUUID();
     const spec = journal.getProductSpec(active.id);
-    const designResult = await runDesigner({ project: active, productSpec: spec, journal, runId, chosenDirection: choice.name });
+    const designResult = await runDesignDirection({ project: active, productSpec: spec, journal, runId, chosenDirection: choice.name });
     saveDesignSystem(active.id, designResult);
     io.write(`Дизайн-система готова: ${designResult.direction ?? choice.name}\n`);
-    await proceedToArchitect(active);
+    await proceedToPlan(active);
     resetInterview();
     continue;
   }

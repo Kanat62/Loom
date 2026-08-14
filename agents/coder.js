@@ -6,7 +6,6 @@ import path from 'node:path';
 import { PROMPTS_DIR } from '../core/config.js';
 import { chat } from '../core/gateway.js';
 import { buildCoderContext } from '../core/context.js';
-import { formatLessonsForPrompt, bumpLessonsApplied } from '../core/lessons.js';
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(PROMPTS_DIR, 'coder.md'), 'utf8');
 
@@ -16,13 +15,6 @@ function buildUserPrompt({ task, productSpec, designSystem, journal }) {
   ];
   if (designSystem) {
     parts.push(`# Дизайн-система (используй ТОЛЬКО эти токены)\n${designSystem}`);
-  }
-  // §12.3/§12.4 ТЗ: только подтверждённые уроки (confirmed_by='human'), нет
-  // урока -> SKIP (formatLessonsForPrompt возвращает null, ничего не добавляем).
-  const projectLessons = formatLessonsForPrompt(journal, `project:${task.project_id}`);
-  if (projectLessons) {
-    parts.push(`# Уроки из прошлого опыта (подтверждены человеком)\n${projectLessons}`);
-    bumpLessonsApplied(journal, `project:${task.project_id}`);
   }
   parts.push(`# Задача\n## ${task.title}\n\n${task.spec}`);
   parts.push(`# Затрагиваемые файлы\n${JSON.stringify(task.touches_files)}`);

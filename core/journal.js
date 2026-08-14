@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS product_spec (
   project_id TEXT PRIMARY KEY REFERENCES projects(id),
   spec_md TEXT NOT NULL,            -- полный текст ТЗ продукта
-  readiness TEXT DEFAULT '[]',      -- JSON: признаки готовности (для covers)
+  readiness TEXT DEFAULT '[]',      -- JSON: [{text, tier: 'core'|'support'}] (§3.1 ТЗ v5.2)
+  core_intent TEXT,                 -- "Ядро замысла" (§3.1 ТЗ v5.2) - 1-2 предложения, ради чего продукт существует
   engineering_defaults TEXT,        -- принятые инженерные решения
   approved_at INTEGER,
   reference_note TEXT
@@ -30,10 +31,11 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT, spec TEXT,
   criteria TEXT,                    -- JSON: {cmd, expect, timeout_ms} | {regression_of:[ids]}
   role TEXT DEFAULT 'coder',
-  type TEXT DEFAULT 'build',        -- build | tweak | regression | pilot_fix | tool
-  status TEXT DEFAULT 'pending',    -- pending|claimed|done|failed|blocked_needs_human
+  type TEXT DEFAULT 'build',        -- build | tweak | regression | pilot_fix | spike (§3.3 ТЗ v5.2)
+  status TEXT DEFAULT 'pending',    -- pending|claimed|done|failed|blocked_needs_human|retired
   touches_files TEXT DEFAULT '[]',
   covers TEXT DEFAULT '[]',         -- какие признаки готовности закрывает
+  core_check INTEGER DEFAULT 0,     -- §8 правило 13 ТЗ v5.2: критерий проверяет ПРОДУКТ ЦЕЛИКОМ, не кусок
   attempts INTEGER DEFAULT 0,
   level TEXT DEFAULT 'code',        -- code|approach|understanding (уровень §11)
   claimed_by TEXT,
@@ -51,12 +53,15 @@ CREATE TABLE IF NOT EXISTS task_deps (
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
   run_id TEXT, project_id TEXT, task_id TEXT,
-  type TEXT,          -- thinking|action|test_result|status|usage|pilot|diagnosis
+  type TEXT,          -- thinking|action|test_result|status|usage|pilot|diagnosis|checkpoint
   agent TEXT, duration_ms INTEGER,
   tokens_in INTEGER, tokens_out INTEGER, cache_read INTEGER,
   cost_usd REAL, payload TEXT, created_at INTEGER
 );
 
+-- Таблица lessons: НЕ удалена (§6.2 ТЗ v5.2) - данные не выбрасываются, но
+-- модуль core/lessons.js и Наставник, которые её использовали, удалены -
+-- таблица не читается и не пишется нигде в v5.2. Вернётся вместе с Наставником.
 CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY,
   scope TEXT,             -- global | project:<id> | stack:<name>
@@ -98,6 +103,7 @@ function parseTaskRow(row) {
     criteria: JSON.parse(row.criteria ?? 'null'),
     touches_files: JSON.parse(row.touches_files ?? '[]'),
     covers: JSON.parse(row.covers ?? '[]'),
+    core_check: !!row.core_check,
   };
 }
 
@@ -115,6 +121,9 @@ export async function createJournal(dbPath = getDbPath()) {
   // вариантам (approach.options), чтобы при уровне "approach" перепроектировать
   // ветку ДРУГИМ вариантом, а не с нуля.
   ensureColumn(db, 'projects', 'approach_json TEXT');
+  // §3.1/§4 ТЗ v5.2 - "Ядро замысла" и §8 правило 13 - критерий целого на core-задаче.
+  ensureColumn(db, 'product_spec', 'core_intent TEXT');
+  ensureColumn(db, 'tasks', 'core_check INTEGER DEFAULT 0');
 
   const stmts = {
     insertProject: db.prepare(
@@ -133,11 +142,12 @@ export async function createJournal(dbPath = getDbPath()) {
     setApproach: db.prepare(`UPDATE projects SET approach_json = ? WHERE id = ?`),
 
     upsertSpec: db.prepare(
-      `INSERT INTO product_spec (project_id, spec_md, readiness, engineering_defaults, reference_note)
-       VALUES (@project_id, @spec_md, @readiness, @engineering_defaults, @reference_note)
+      `INSERT INTO product_spec (project_id, spec_md, readiness, core_intent, engineering_defaults, reference_note)
+       VALUES (@project_id, @spec_md, @readiness, @core_intent, @engineering_defaults, @reference_note)
        ON CONFLICT(project_id) DO UPDATE SET
          spec_md=excluded.spec_md,
          readiness=excluded.readiness,
+         core_intent=excluded.core_intent,
          engineering_defaults=excluded.engineering_defaults,
          reference_note=excluded.reference_note`
     ),
@@ -147,8 +157,8 @@ export async function createJournal(dbPath = getDbPath()) {
     ),
 
     insertTask: db.prepare(
-      `INSERT INTO tasks (id, project_id, title, spec, criteria, role, type, touches_files, covers, created_at)
-       VALUES (@id, @project_id, @title, @spec, @criteria, @role, @type, @touches_files, @covers, @created_at)`
+      `INSERT INTO tasks (id, project_id, title, spec, criteria, role, type, touches_files, covers, core_check, created_at)
+       VALUES (@id, @project_id, @title, @spec, @criteria, @role, @type, @touches_files, @covers, @core_check, @created_at)`
     ),
     insertDep: db.prepare(
       `INSERT OR IGNORE INTO task_deps (task_id, blocked_by) VALUES (?, ?)`
@@ -285,6 +295,7 @@ export async function createJournal(dbPath = getDbPath()) {
       project_id,
       spec_md,
       readiness = [],
+      core_intent = null,
       engineering_defaults = [],
       reference_note = null,
     }) {
@@ -292,6 +303,7 @@ export async function createJournal(dbPath = getDbPath()) {
         project_id,
         spec_md,
         readiness: jstr(readiness),
+        core_intent,
         engineering_defaults: jstr(engineering_defaults),
         reference_note,
       });
@@ -321,6 +333,7 @@ export async function createJournal(dbPath = getDbPath()) {
       touches_files = [],
       covers = [],
       deps = [],
+      core_check = false,
     }) {
       const id = `task_${crypto.randomBytes(5).toString('hex')}`;
       stmts.insertTask.run({
@@ -333,6 +346,7 @@ export async function createJournal(dbPath = getDbPath()) {
         type,
         touches_files: jstr(touches_files),
         covers: jstr(covers),
+        core_check: core_check ? 1 : 0,
         created_at: Date.now(),
       });
       for (const dep of deps) {

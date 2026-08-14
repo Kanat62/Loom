@@ -8,7 +8,7 @@ import { PROMPTS_DIR, CHECK_TIMEOUT_MS } from '../core/config.js';
 import { chat } from '../core/gateway.js';
 import { runProcess } from '../core/spawnUtil.js';
 import { workspaceDir } from '../core/projects.js';
-import { npmInstallGuarded } from './architect.js';
+import { npmInstallGuarded } from './engineer.js';
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(PROMPTS_DIR, 'pilot.md'), 'utf8');
 
@@ -66,7 +66,7 @@ export async function runPilot({ project, productSpec, journal, runId }) {
 
   const script = res.data?.script;
   if (!script) {
-    return { findings: [], visual: false, scriptFailed: true, error: 'Пилот не вернул поле script' };
+    return { findings: [], visual: false, stepsDone: [], scriptFailed: true, error: 'Пилот не вернул поле script' };
   }
 
   const rand = crypto.randomBytes(4).toString('hex');
@@ -89,6 +89,7 @@ export async function runPilot({ project, productSpec, journal, runId }) {
     return {
       findings: [],
       visual: false,
+      stepsDone: [],
       scriptFailed: true,
       error: `Пилот-скрипт не вывел ничего в stdout (exit ${execRes.code}): ${execRes.stderr.slice(0, 500)}`,
     };
@@ -96,11 +97,12 @@ export async function runPilot({ project, productSpec, journal, runId }) {
 
   try {
     const parsed = JSON.parse(stdout);
-    return { findings: parsed.findings ?? [], visual: parsed.visual ?? browserAvailable };
+    return { findings: parsed.findings ?? [], visual: parsed.visual ?? browserAvailable, stepsDone: parsed.steps_done ?? [] };
   } catch {
     return {
       findings: [],
       visual: false,
+      stepsDone: [],
       scriptFailed: true,
       error: `Пилот-скрипт вернул невалидный JSON: ${stdout.slice(0, 300)}`,
     };
@@ -129,4 +131,13 @@ export function applyPilotFindings(journal, project, findings) {
 
 export function hasBlockers(findings) {
   return findings.some((f) => f.severity === 'blocker');
+}
+
+/**
+ * requiresVisualBlock - §5 ТЗ v5.2 (шрам 42): для domain='ui' visual:false -
+ * не находка и не предупреждение, продукт физически НЕ МОЖЕТ стать delivered.
+ * Второй контур недоступен целиком (не проверен глазами), а не деградировал.
+ */
+export function requiresVisualBlock(project, pilotResult) {
+  return project.domain === 'ui' && !pilotResult.visual;
 }
